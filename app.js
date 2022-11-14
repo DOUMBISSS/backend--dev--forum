@@ -4,6 +4,7 @@ import User from './db/models/user.js';
 import bodyParser from 'body-parser';
 import {routes} from "./routes/routes.js";
 import Question from "./db/models/question.js";
+import Comment from "./db/models/comments.js";
 import cors from "cors"
 
 
@@ -135,17 +136,16 @@ app.get('/api/logout',auth,function(req,res){
       if(err) return res.status(400).send(err);
       res.sendStatus(200);
   });
-
 }); 
 
-app.get('/api/questions',function(req,res){
+app.get('/api/question',function(req,res){
     res.json({
         title:req.body.title,
         content:req.body.content,
     })
 })
 
-app.post('/api/questions',function(req,res){
+app.post('/api/question',function(req,res){
     const newQuestion=new Question(req.body)
     newQuestion.save((err,doc)=>{
         if(err) {console.log(err);
@@ -160,16 +160,57 @@ app.post('/api/questions',function(req,res){
 })
 
 app.get('/api/questions', (req,res) => { 
-                        Question.find({}).toArray()    
-                        .then(doc => res.status(200).json(doc)) 
+                        Question.find({})
+                        .then((doc)=>{res.send(doc)})
+                        .catch(err => {console.log(err);      
+                            })
                     })
 
-// app.get('/api/questions',function(req,res) {   
-//     Question.find({}).toArray()
-//     .then(doc => res.status(200).json(doc))        
-//     .catch(err => {console.log(err);           
-//     throw err        
-// })})
+app.get('/api/question/:id',(req,res) => { 
+                        Question.findById((req.params.id),(req.body))
+                        .then((doc)=>{res.send(doc)})
+                        .catch(err => {console.log(err);      
+                            })
+                    })
+
+app.put('/api/question/:id',(req,res) => { 
+                        Question.findByIdAndUpdate((req.params.id),(req.body))
+                        .then((doc)=>{res.send(doc)})
+                        .catch(err => {console.log(err);      
+                            })
+                    })
+
+app.get('/api/comment',function(req,res){
+                        res.json({
+                            commentUser:req.body.commentUser
+                        })
+                    })
+
+app.post('/api/comment',(req,res)=>{
+    const newComment = new Comment(req.body)
+    newComment.save((err,doc)=>{
+        if(err) {console.log(err);
+            return res.status(400).json({ success : false});}
+        res.status(200).json({
+            succes:true,
+            message : "Comment added with success",
+            dataComment : doc
+        });
+    })
+})
+app.get('/api/comments',(req,res)=>{
+    Comment.find({})
+    .then((doc)=>{res.send(doc)})
+    .catch(err => {console.log(err);      
+                            })
+                        })
+
+// app.delete('/api/question/:id',(req,res) => { 
+//                      Question.findByIdAndDelete((req.params.id),(req.body))
+//                         .then((doc)=>{res.send(doc).res.status(200)})
+//                         .catch(err => {console.log(err);      
+//                             })
+//                     })
 
 app.listen(port , ()=> {
     console.log('Server running at http:127.0.0.1:' + port)
