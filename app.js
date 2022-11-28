@@ -5,7 +5,11 @@ import bodyParser from 'body-parser';
 import {routes} from "./routes/routes.js";
 import Question from "./db/models/question.js";
 import Comment from "./db/models/comments.js";
-import cors from "cors"
+import Category from './db/models/category.js';
+import cors from "cors";
+import dotenv from 'dotenv'
+import bcrypt from "bcrypt";
+// import Category from './db/models/category.js';
 
 
 const app = express();
@@ -16,43 +20,8 @@ app.use(cors())
 app.use(routes);
 const database = new Database();
 
-database.connect();
+Database.connect();
 
-// const user = new User({
-//                     firstName: 'Doumbia', 
-//                     lastName: 'Fode',
-//                     email:'fode77doumbia@gmail.com'
-//                      })
-// console.log(user)
-
-// const email = EmailModel.create({
-//     email:'fode77doumbia@gmail.com'
-// }).then(() => {
-//     console.log("Email created with success")
-// })
-// .catch(err => {
-//     console.log(err.message)
-// })
-
-// const user =  new User({
-//     firstName: 'Doumbia', 
-//     lastName: 'Fode',
-//      password:'ddjjd'
-//     email:'fode77doumbia@gmail.com',
-// }).save()
-// .then(doc => {
-//   console.log('User added to your database')
-// })
-// .catch(err => {
-//   console.error(err)
-// });
-
-// User.create([
-//     {firstName: 'Doumbia Fode',email:'doumbia77fode@gmail.com',password:'ddjjd'},
-
-//     {firstName: 'Kouyate Karim',email:'kouyate02@gmail.com',password:'ddjjd'},
-
-// ])
 
 let auth =(req,res,next)=>{
   let token =req.cookies.auth;
@@ -68,84 +37,111 @@ let auth =(req,res,next)=>{
 }
 
 
-app.post('/api/register',function(req,res){
+app.post('/register',function(req,res){
   // taking a user
   const newuser=new User(req.body);
   
- if(newuser.password!=newuser.password2)return res.status(400).json({message: "password not match"});
+ if(newuser.password!=newuser.password2)
+ return res.status(400).json({message: "password not match"});
   
   User.findOne({email:newuser.email},function(err,user){
-      if(user) return res.status(400).json({ auth : false, message :"email exits"});
+      if(user) 
+      return res.status(400).json({ auth : false, message :"email exits"});
 
       newuser.save((err,doc)=>{
-          if(err) {console.log(err);
-              return res.status(400).json({ success : false});}
-          res.status(200).json({
-              succes:true,
-              user : doc
-          });
-      });
+        if(err) {console.log(err);
+        return res.status(400).json({ success : false});  }
+        res.json(doc);
+    });
+
   });
 });
 
-// login user
-app.post('/api/login', function(req,res){
-  let token=req.cookies.auth;
-  User.findByToken(token,(err,user)=>{
-      if(err) return  res(err);
-      if(user) return res.status(400).json({
-          error :true,
-          message:"You are already logged in"
-      });
+app.post('/login', function(req,res){
+    // let token=req.cookies.auth;
+    // User.findByToken(token,(err,user)=>{
+    //     if(err) return  res(err);
+    //     if(user) return res.status(400).json({
+    //         error :true,
+    //         message:"You are already logged in"
+    //     });
+    
+    //     else{
+            User.findOne({'email':req.body.email},function(err,user){
+                if(!user) return res.json({isAuth : false, message : ' Auth failed ,email not found'});
+        
+                user.comparepassword(req.body.password,(err,isMatch)=>{
+                    if(!isMatch) return res.json({ isAuth : false,message : "password doesn't match"});
+        
+                user.generateToken((err,user)=>{
+                    if(err) return res.status(400).send(err);
+                    res.json({
+                        isAuth : true,
+                        token : user.token,
+                        id : user._id,
+                        email : user.email,
+                        name: user.name
+                    });
+                });    
+            });
+          });
+       // }
+    });
+
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
   
-      else{
-          User.findOne({'email':req.body.email},function(err,user){
-              if(!user) return res.json({isAuth : false, message : ' Auth failed ,email not found'});
-      
-              user.comparepassword(req.body.password,(err,isMatch)=>{
-                  if(!isMatch) return res.json({ isAuth : false,message : "password doesn't match"});
-      
-              user.generateToken((err,user)=>{
-                  if(err) return res.status(400).send(err);
-                  res.cookie('auth',user.token).json({
-                      isAuth : true,
-                      id : user._id,
-                      email : user.email
-                  });
-              });    
-          });
-        });
+    if (token == null) return res.sendStatus(401)
+  
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+      if (err) {
+        return res.sendStatus(401)
       }
+      req.user = user;
+      next();
+    });
+  }
+  
+  app.get('/api/me', authenticateToken, (req, res) => {
+    res.send(req.user);
   });
-});
 
-// get logged in user
-app.get('/api/profile',auth,function(req,res){
+app.get('/profile',auth,function(req,res){
   res.json({
       isAuth: true,
       id: req.user._id,
       email: req.user.email,
-      name: req.user.firstname + req.user.lastname
+      name: req.user.name
       
   })
 });
 
 //logout user
-app.get('/api/logout',auth,function(req,res){
+app.get('/logout',auth,function(req,res){
   req.user.deleteToken(req.token,(err,user)=>{
       if(err) return res.status(400).send(err);
       res.sendStatus(200);
   });
-}); 
+});
 
-app.get('/api/question',function(req,res){
+app.get('/users',function(req,res){
+                        User.find({})
+                        .then((doc)=>{res.send(doc)})
+                        .catch(err => {console.log(err);      
+                            })
+
+})
+
+app.get('/question',function(req,res){
     res.json({
         title:req.body.title,
         content:req.body.content,
     })
 })
 
-app.post('/api/question',function(req,res){
+app.post('/questions',function(req,res){
     const newQuestion=new Question(req.body)
     newQuestion.save((err,doc)=>{
         if(err) {console.log(err);
@@ -156,41 +152,42 @@ app.post('/api/question',function(req,res){
             data : doc
         });
     });
-    
 })
 
-app.get('/api/questions', (req,res) => { 
-                        Question.find({})
+app.get('/questions', (req,res) => { 
+                        Question.find({}).populate("comments")
                         .then((doc)=>{res.send(doc)})
                         .catch(err => {console.log(err);      
                             })
                     })
 
-app.get('/api/question/:id',(req,res) => { 
-                        Question.findById((req.params.id),(req.body))
+app.get('/question/:id',(req,res) => { 
+                        Question.findById((req.params.id),(req.body)).populate("comments")
                         .then((doc)=>{res.send(doc)})
                         .catch(err => {console.log(err);      
                             })
                     })
 
-app.put('/api/question/:id',(req,res) => { 
+app.put('/question/:id',(req,res) => { 
                         Question.findByIdAndUpdate((req.params.id),(req.body))
                         .then((doc)=>{res.send(doc)})
                         .catch(err => {console.log(err);      
                             })
                     })
 
-app.get('/api/comment',function(req,res){
+app.get('/comment',function(req,res){
                         res.json({
-                            commentUser:req.body.commentUser
+                            content:req.body.content
                         })
                     })
 
-app.post('/api/comment',(req,res)=>{
+app.post('/comments',(req,res)=>{
     const newComment = new Comment(req.body)
     newComment.save((err,doc)=>{
         if(err) {console.log(err);
             return res.status(400).json({ success : false});}
+            Question.updateOne({"_id" : doc.question_id},{$push : {comments : doc._id}})
+            .then((doc)=> console.log(doc))
         res.status(200).json({
             succes:true,
             message : "Comment added with success",
@@ -198,19 +195,27 @@ app.post('/api/comment',(req,res)=>{
         });
     })
 })
-app.get('/api/comments',(req,res)=>{
+app.get('/comments',(req,res)=>{
     Comment.find({})
     .then((doc)=>{res.send(doc)})
     .catch(err => {console.log(err);      
                             })
                         })
 
-// app.delete('/api/question/:id',(req,res) => { 
-//                      Question.findByIdAndDelete((req.params.id),(req.body))
-//                         .then((doc)=>{res.send(doc).res.status(200)})
-//                         .catch(err => {console.log(err);      
-//                             })
-//                     })
+app.get('/categories', (req,res) => { 
+    Category.find({}).populate('questions')
+    .then((doc)=>{res.send(doc)})
+    .catch(err => {console.log(err);      
+    })
+})
+
+app.post('/categories',function(req,res){
+    const categories = new Category (req.body)
+    categories.save()
+    .then((doc)=>{res.send(doc)})
+    .catch(err => {console.log(err);      
+     })
+})
 
 app.listen(port , ()=> {
     console.log('Server running at http:127.0.0.1:' + port)

@@ -2,26 +2,26 @@ import mongoose from 'mongoose';
 import validator from 'validator';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-// import confiq from '../config.js'
+import {config} from '../../config.js'
 
 
-// const confiq=require('../config/config').get(process.env.NODE_ENV);
 const salt=10;
 
 let userSchema = new mongoose.Schema({
-    firstname: {type :String,maxlength: 50},
-    lastname: {type :String,maxlength: 50},
+    name: {type :String,required: true,maxlength: 50},
+
     email: {type: String,required: true,unique: true,lowercase: true,
         validate: (value) => {
           return validator.isEmail(value)}},
 
-      password: {type: String,required: true,minlength:8,maxlength:16},
+      password: {type: String,required: true,unique: true},
 
-      password2: {type: String,required: true,minlength:8,maxlength:16},
+      password2: {type: String,required: true,unique: true},
 
       date: { type: Date, default: Date.now },
       token:{type: String}
   });
+
 // Preuser
   userSchema.pre('save',function(next){
     var user=this;
@@ -44,7 +44,7 @@ let userSchema = new mongoose.Schema({
     }
 });
 
-///function is for comparing the user password when user tries to login
+// function is for comparing the user password when user tries to login
 userSchema.methods.comparepassword=function(password,cb){
   bcrypt.compare(password,this.password,function(err,isMatch){
       if(err) return cb(next);
@@ -55,7 +55,7 @@ userSchema.methods.comparepassword=function(password,cb){
 //Next function is for generating a token when user logged in.
 userSchema.methods.generateToken=function(cb){
   var user =this;
-  var token=jwt.sign(user._id.toHexString(),confiq.SECRET);
+  var token=jwt.sign(user._id.toHexString(),config.SECRET);
 
   user.token=token;
   user.save(function(err,user){
@@ -77,7 +77,6 @@ userSchema.statics.findByToken=function(token,cb){
 };
 
 //delete token
-
 userSchema.methods.deleteToken=function(token,cb){
   var user=this;
 
