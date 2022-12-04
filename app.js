@@ -195,7 +195,7 @@ app.post('/comments',(req,res)=>{
     })
 })
 app.get('/comments',(req,res)=>{
-    Comment.find({})
+    Comment.find({}).populate('question_id')
     .then((doc)=>{res.send(doc)})
     .catch(err => {console.log(err);      
                             })
