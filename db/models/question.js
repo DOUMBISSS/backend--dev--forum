@@ -6,10 +6,10 @@ import Category from './category.js'
 let questionSchema = new mongoose.Schema({
     title : String,
     content : String,
-    selected:String,
+    categories:String,
     date: { type: Date, default: Date.now },
     comments:[{type : mongoose.Types.ObjectId , ref: "Comment"}],
-    categories: [{type : mongoose.Types.ObjectId , ref: "Category"}]
+    // categories: [{type : mongoose.Types.ObjectId , ref: "Category"}]
 })
 
 
